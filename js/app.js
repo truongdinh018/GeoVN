@@ -98,7 +98,7 @@
         if (level === "province") provinceLayer.resetStyle(e.target);
         else wardLayer.resetStyle(e.target);
       },
-      click: () => selectUnit(level, p.code, { fit: false });
+      click: () => selectUnit(level, p.code, { fit: false }),
     });
 
     layer.bindPopup(
