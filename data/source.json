@@ -4,5 +4,5 @@
   "zip": "vn_provinces_wards_geojson_2026-07-12__19_50_51.zip",
   "zipUrl": "https://raw.githubusercontent.com/truongdinh018/vietnamese-provinces-database/master/json/vn_provinces_wards_geojson_2026-07-12__19_50_51.zip",
   "upstreamOrigin": "thanglequoc/vietnamese-provinces-database",
-  "note": "Canonical GIS source for GeoVN. Rebuild via ./scripts/build-data.sh"
+  "builtAt": "2026-07-20T03:32:26.405760+00:00"
 }
