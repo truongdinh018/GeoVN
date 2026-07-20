@@ -489,18 +489,15 @@ body {
   transition: width 0.2s ease;
 }
 
-.leaflet-tooltip.geo-label {
+.geo-label-marker {
   background: transparent !important;
   border: 0 !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
+}
+.geo-label-marker span {
+  display: inline-block;
+  transform: translate(-50%, -50%);
   white-space: nowrap;
   pointer-events: none;
-}
-.leaflet-tooltip.geo-label::before { display: none !important; }
-.leaflet-tooltip.geo-label-province,
-.leaflet-tooltip.geo-label-ward {
   color: #fff;
   font-weight: 700;
   text-shadow:
@@ -510,8 +507,14 @@ body {
      1px  1px 0 rgba(11,18,32,0.95),
      0 0 6px rgba(11,18,32,0.75);
 }
-.leaflet-tooltip.geo-label-province { font-size: 13px; font-family: var(--display); }
-.leaflet-tooltip.geo-label-ward { font-size: 11px; font-weight: 600; }
+.geo-label-marker.geo-label-province span {
+  font-size: 13px;
+  font-family: var(--display);
+}
+.geo-label-marker.geo-label-ward span {
+  font-size: 11px;
+  font-weight: 600;
+}
 
 .leaflet-popup-content-wrapper {
   border-radius: 14px;

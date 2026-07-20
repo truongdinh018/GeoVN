@@ -429,15 +429,163 @@
     refreshLabels();
   }
 
-  function clearLayerTooltips(group) {
-    group.eachLayer((layer) => {
-      if (layer.getTooltip()) layer.unbindTooltip();
+  const labelLayer = L.layerGroup().addTo(map);
+  const labelCenterCache = new Map();
+
+  function ringArea(ring) {
+    let a = 0;
+    for (let i = 0; i < ring.length - 1; i++) {
+      a += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
+    }
+    return a / 2;
+  }
+
+  function ringCentroid(ring) {
+    const a = ringArea(ring);
+    if (Math.abs(a) < 1e-18) {
+      let sx = 0;
+      let sy = 0;
+      for (const p of ring) {
+        sx += p[0];
+        sy += p[1];
+      }
+      return [sx / ring.length, sy / ring.length];
+    }
+    let cx = 0;
+    let cy = 0;
+    for (let i = 0; i < ring.length - 1; i++) {
+      const x1 = ring[i][0];
+      const y1 = ring[i][1];
+      const x2 = ring[i + 1][0];
+      const y2 = ring[i + 1][1];
+      const f = x1 * y2 - x2 * y1;
+      cx += (x1 + x2) * f;
+      cy += (y1 + y2) * f;
+    }
+    return [cx / (6 * a), cy / (6 * a)];
+  }
+
+  function pointInRing(x, y, ring) {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const xi = ring[i][0];
+      const yi = ring[i][1];
+      const xj = ring[j][0];
+      const yj = ring[j][1];
+      const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi + 1e-30) + xi;
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  function exteriorRings(geometry) {
+    if (!geometry) return [];
+    if (geometry.type === "Polygon") return [geometry.coordinates[0]];
+    if (geometry.type === "MultiPolygon") return geometry.coordinates.map((poly) => poly[0]);
+    return [];
+  }
+
+  function visualCenter(geometry) {
+    const rings = exteriorRings(geometry);
+    if (!rings.length) return null;
+    rings.sort((a, b) => Math.abs(ringArea(b)) - Math.abs(ringArea(a)));
+    const ring = rings[0];
+
+    // Coarse pole-of-inaccessibility on largest landmass
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const [x, y] of ring) {
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+    const steps = 12;
+    const dx = (maxX - minX) / steps;
+    const dy = (maxY - minY) / steps;
+    let best = null;
+    let bestScore = -1;
+
+    function scoreAt(x, y) {
+      if (!pointInRing(x, y, ring)) return -1;
+      let minD = Infinity;
+      for (let i = 0; i < ring.length - 1; i++) {
+        const ax = ring[i][0];
+        const ay = ring[i][1];
+        const bx = ring[i + 1][0];
+        const by = ring[i + 1][1];
+        const vx = bx - ax;
+        const vy = by - ay;
+        const t =
+          vx === 0 && vy === 0
+            ? 0
+            : Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * vy) / (vx * vx + vy * vy)));
+        const px = ax + t * vx;
+        const py = ay + t * vy;
+        const d = (x - px) * (x - px) + (y - py) * (y - py);
+        if (d < minD) minD = d;
+      }
+      return minD;
+    }
+
+    for (let i = 1; i < steps; i++) {
+      for (let j = 1; j < steps; j++) {
+        const x = minX + dx * i;
+        const y = minY + dy * j;
+        const s = scoreAt(x, y);
+        if (s > bestScore) {
+          bestScore = s;
+          best = [x, y];
+        }
+      }
+    }
+
+    if (!best) {
+      best = ringCentroid(ring);
+      if (!pointInRing(best[0], best[1], ring)) {
+        // fallback: average of vertices of largest ring
+        let sx = 0;
+        let sy = 0;
+        for (const p of ring) {
+          sx += p[0];
+          sy += p[1];
+        }
+        best = [sx / ring.length, sy / ring.length];
+      }
+    }
+    return best;
+  }
+
+  function labelLatLng(feature) {
+    const p = feature.properties || {};
+    const key = p.code;
+    if (labelCenterCache.has(key)) return labelCenterCache.get(key);
+
+    let ll = null;
+    if (p.labelLat != null && p.labelLng != null) {
+      ll = L.latLng(p.labelLat, p.labelLng);
+    } else {
+      const center = visualCenter(feature.geometry);
+      if (center) ll = L.latLng(center[1], center[0]);
+    }
+    if (ll) labelCenterCache.set(key, ll);
+    return ll;
+  }
+
+  function addLabelMarker(text, latlng, className) {
+    const icon = L.divIcon({
+      className: `geo-label-marker ${className}`,
+      html: `<span>${escapeHtml(text)}</span>`,
+      iconSize: [0, 0],
+      iconAnchor: [0, 0],
     });
+    L.marker(latlng, { icon, interactive: false, keyboard: false }).addTo(labelLayer);
   }
 
   function refreshLabels() {
-    clearLayerTooltips(provinceLayer);
-    clearLayerTooltips(wardLayer);
+    labelLayer.clearLayers();
     if (!state.showLabels) return;
 
     const zoom = map.getZoom();
@@ -445,14 +593,11 @@
 
     if (el.layerProvinces.checked && zoom < 9) {
       provinceLayer.eachLayer((layer) => {
-        const p = layer.feature?.properties;
-        if (!p) return;
-        layer.bindTooltip(unitLabel("province", p), {
-          permanent: true,
-          direction: "center",
-          className: "geo-label geo-label-province",
-          interactive: false,
-        });
+        const feature = layer.feature;
+        if (!feature?.properties) return;
+        const ll = labelLatLng(feature);
+        if (!ll || !bounds.contains(ll)) return;
+        addLabelMarker(unitLabel("province", feature.properties), ll, "geo-label-province");
       });
     }
 
@@ -461,16 +606,13 @@
       const maxLabels = zoom >= 13 ? 900 : zoom >= 11 ? 500 : 280;
       wardLayer.eachLayer((layer) => {
         if (shown >= maxLabels) return;
+        const feature = layer.feature;
+        if (!feature?.properties) return;
         const b = layer.getBounds?.();
         if (!b || !bounds.intersects(b)) return;
-        const p = layer.feature?.properties;
-        if (!p) return;
-        layer.bindTooltip(unitLabel("ward", p), {
-          permanent: true,
-          direction: "center",
-          className: "geo-label geo-label-ward",
-          interactive: false,
-        });
+        const ll = labelLatLng(feature);
+        if (!ll || !bounds.contains(ll)) return;
+        addLabelMarker(unitLabel("ward", feature.properties), ll, "geo-label-ward");
         shown += 1;
       });
     }
