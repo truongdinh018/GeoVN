@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GeoVN — Bản đồ tra cứu đơn vị hành chính</title>
-  <meta name="description" content="Bản đồ GIS đơn vị hành chính Việt Nam: 34 tỉnh/thành và 3.321 xã/phường." />
+  <meta name="description" content="Bản đồ GIS đơn vị hành chính Việt Nam: 34 tỉnh/thành và 3.321 xã/phường — mỗi tỉnh một màu riêng." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="css/style.css" />
@@ -13,23 +16,19 @@
   <div id="app">
     <aside id="sidebar">
       <header class="brand">
-        <h1>GeoVN</h1>
-        <p>Bản đồ tra cứu đơn vị hành chính</p>
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>GeoVN</h1>
+          <p>Bản đồ hành chính Việt Nam</p>
+        </div>
       </header>
 
-      <section class="panel">
+      <section class="panel search-panel">
         <label class="field">
           <span>Tìm kiếm</span>
-          <input id="search" type="search" placeholder="Nhập tên tỉnh, xã, phường…" autocomplete="off" />
+          <input id="search" type="search" placeholder="Tỉnh, xã, phường, mã…" autocomplete="off" />
         </label>
         <div id="search-results" class="search-results" hidden></div>
-      </section>
-
-      <section class="panel">
-        <h2>Lớp hiển thị</h2>
-        <label class="check"><input type="checkbox" id="layer-provinces" checked /> Tỉnh / Thành phố (34)</label>
-        <label class="check"><input type="checkbox" id="layer-wards" checked /> Xã / Phường / Đặc khu (3.321)</label>
-        <label class="check"><input type="checkbox" id="layer-labels" checked /> Hiện tên trên bản đồ</label>
       </section>
 
       <section class="panel">
@@ -41,13 +40,24 @@
         </div>
       </section>
 
+      <section class="panel">
+        <h2>Lớp hiển thị</h2>
+        <label class="check"><input type="checkbox" id="layer-provinces" checked /> Tỉnh / Thành phố <em>34</em></label>
+        <label class="check"><input type="checkbox" id="layer-wards" checked /> Xã / Phường / Đặc khu <em>3.321</em></label>
+        <label class="check"><input type="checkbox" id="layer-labels" checked /> Hiện tên trên bản đồ</label>
+      </section>
+
       <section class="panel" id="info-panel">
         <h2>Thông tin</h2>
-        <div id="info" class="info empty">Chọn một đơn vị trên bản đồ</div>
+        <div id="info" class="info empty">Chọn một đơn vị trên bản đồ hoặc danh mục</div>
       </section>
 
       <section class="panel tree-panel">
-        <h2>Danh mục đơn vị hành chính</h2>
+        <div class="panel-head">
+          <h2>Danh mục · màu theo tỉnh</h2>
+          <span class="hint">Mỗi tỉnh một màu riêng</span>
+        </div>
+        <div id="legend" class="legend" aria-label="Chú thích màu tỉnh"></div>
         <div id="tree" class="tree"></div>
       </section>
 
@@ -64,8 +74,8 @@
       <div class="map-toolbar top-left" role="toolbar" aria-label="Công cụ bản đồ">
         <button type="button" id="toggle-sidebar" class="tool-btn" title="Danh mục" aria-label="Danh mục">☰</button>
         <button type="button" id="tool-search" class="tool-btn" title="Tìm kiếm" aria-label="Tìm kiếm">⌕</button>
-        <button type="button" id="tool-measure" class="tool-btn" title="Đo khoảng cách" aria-label="Đo khoảng cách">📏</button>
-        <button type="button" id="tool-layers" class="tool-btn" title="Lớp bản đồ nền" aria-label="Lớp bản đồ nền">⧉</button>
+        <button type="button" id="tool-measure" class="tool-btn" title="Đo khoảng cách" aria-label="Đo khoảng cách">┊</button>
+        <button type="button" id="tool-layers" class="tool-btn" title="Bản đồ nền" aria-label="Bản đồ nền">⧉</button>
       </div>
 
       <div class="map-toolbar right" role="toolbar" aria-label="Điều khiển bản đồ">
@@ -78,8 +88,8 @@
 
       <div id="basemap-panel" class="float-panel" hidden>
         <h3>Bản đồ nền</h3>
-        <label class="radio"><input type="radio" name="basemap" value="satellite" checked /> Ảnh vệ tinh</label>
-        <label class="radio"><input type="radio" name="basemap" value="light" /> Bản đồ nền sáng</label>
+        <label class="radio"><input type="radio" name="basemap" value="light" checked /> Nền sáng (nhìn màu tỉnh rõ)</label>
+        <label class="radio"><input type="radio" name="basemap" value="satellite" /> Ảnh vệ tinh</label>
         <label class="radio"><input type="radio" name="basemap" value="osm" /> OpenStreetMap</label>
       </div>
 
@@ -87,8 +97,8 @@
 
       <div id="status-bar" class="status-bar">
         <div class="basemap-toggles">
-          <button type="button" class="status-chip active" data-basemap="satellite">Ảnh vệ tinh</button>
-          <button type="button" class="status-chip" data-basemap="light">Bản đồ nền</button>
+          <button type="button" class="status-chip active" data-basemap="light">Nền sáng</button>
+          <button type="button" class="status-chip" data-basemap="satellite">Vệ tinh</button>
         </div>
         <div id="coords" class="coords">X: — | Y: —</div>
         <div id="scale-text" class="scale-text"></div>

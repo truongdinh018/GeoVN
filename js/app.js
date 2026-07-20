@@ -5,6 +5,8 @@
     [23.6, 109.7],
   ];
 
+  const FALLBACK_PALETTE = { fill: "#64748b", stroke: "#334155", soft: "#cbd5e1", softStroke: "#475569" };
+
   const state = {
     provinces: null,
     wards: null,
@@ -15,26 +17,19 @@
     mode: "both",
     showLabels: true,
     selected: null,
-    basemap: "satellite",
+    basemap: "light",
     measuring: false,
   };
 
   function colorForProvince(code) {
-    if (state.provinceColors.has(code)) return state.provinceColors.get(code);
-    let h = 0;
-    for (let i = 0; i < String(code).length; i++) h = (h * 31 + String(code).charCodeAt(i)) >>> 0;
-    const hue = (h * 137.508) % 360;
-    const fill = `hsl(${hue.toFixed(1)} 72% 52%)`;
-    const stroke = `hsl(${hue.toFixed(1)} 78% 32%)`;
-    const soft = `hsl(${hue.toFixed(1)} 70% 78%)`;
-    const softStroke = `hsl(${hue.toFixed(1)} 55% 38%)`;
-    const palette = { fill, stroke, soft, softStroke, hue };
-    state.provinceColors.set(code, palette);
-    return palette;
+    return state.provinceColors.get(String(code)) || FALLBACK_PALETTE;
   }
 
-  function darkenSelected(hslFill) {
-    return hslFill.replace(/(\d+(?:\.\d+)?)%\)$/, (_, l) => `${Math.max(28, Number(l) - 12)}%)`);
+  function darkenHex(hex, amount = 0.18) {
+    const h = String(hex).replace("#", "");
+    if (h.length !== 6) return hex;
+    const mix = (c) => Math.max(0, Math.round(parseInt(c, 16) * (1 - amount)));
+    return `#${[h.slice(0, 2), h.slice(2, 4), h.slice(4, 6)].map((p) => mix(p).toString(16).padStart(2, "0")).join("")}`;
   }
 
   const el = {
@@ -43,6 +38,7 @@
     progress: document.getElementById("progress-bar"),
     info: document.getElementById("info"),
     tree: document.getElementById("tree"),
+    legend: document.getElementById("legend"),
     search: document.getElementById("search"),
     searchResults: document.getElementById("search-results"),
     layerProvinces: document.getElementById("layer-provinces"),
@@ -87,7 +83,7 @@
     }),
   };
 
-  let activeBase = basemaps.satellite.addTo(map);
+  let activeBase = basemaps.light.addTo(map);
 
   function setBasemap(name) {
     if (!basemaps[name] || state.basemap === name) {
@@ -130,11 +126,11 @@
     const selected = state.selected?.code === code && state.selected?.level === "province";
     const sat = state.basemap === "satellite";
     return {
-      color: sat ? "#ff2db8" : c.stroke,
-      weight: selected ? 3 : sat ? 2 : 1.5,
+      color: selected ? "#0b1220" : c.stroke,
+      weight: selected ? 3.2 : sat ? 1.8 : 1.35,
       opacity: 0.95,
-      fillColor: selected ? darkenSelected(c.fill) : c.fill,
-      fillOpacity: state.mode === "ward" ? 0.04 : selected ? 0.55 : sat ? 0.22 : 0.5,
+      fillColor: selected ? darkenHex(c.fill, 0.14) : c.fill,
+      fillOpacity: state.mode === "ward" ? 0.05 : selected ? 0.78 : sat ? 0.42 : 0.62,
     };
   }
 
@@ -144,11 +140,11 @@
     const selected = state.selected?.code === p.code && state.selected?.level === "ward";
     const sat = state.basemap === "satellite";
     return {
-      color: selected ? "#fff" : sat ? "#ff4ec4" : c.softStroke,
-      weight: selected ? 2.4 : sat ? 1.4 : 0.55,
-      opacity: 0.95,
+      color: selected ? "#0b1220" : c.softStroke,
+      weight: selected ? 2.4 : sat ? 0.9 : 0.55,
+      opacity: 0.9,
       fillColor: selected ? c.fill : c.soft,
-      fillOpacity: state.mode === "province" ? 0.02 : selected ? 0.45 : sat ? 0.08 : 0.45,
+      fillOpacity: state.mode === "province" ? 0.02 : selected ? 0.55 : sat ? 0.18 : 0.42,
     };
   }
 
@@ -163,7 +159,7 @@
         if (state.measuring) return;
         e.target.setStyle({
           weight: level === "province" ? 3 : 2.2,
-          fillOpacity: Math.min(0.55, (e.target.options.fillOpacity || 0.2) + 0.2),
+          fillOpacity: Math.min(0.82, (e.target.options.fillOpacity || 0.2) + 0.18),
         });
         if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) e.target.bringToFront();
       },
@@ -179,11 +175,13 @@
   }
 
   function popupHtml(level, p, province) {
+    const code = level === "province" ? p.code : p.provinceCode;
+    const c = colorForProvince(code);
     const parent =
       level === "ward" && province
         ? `<div class="popup-sub">(${escapeHtml(province.fullName || province.name)})</div>`
         : "";
-    return `<div class="popup-title">${escapeHtml(unitLabel(level, p))}</div>
+    return `<div class="popup-title"><span class="dot" style="background:${c.fill}"></span>${escapeHtml(unitLabel(level, p))}</div>
       ${parent}
       <div class="popup-meta">
         Mã: <b>${escapeHtml(p.code)}</b><br/>
@@ -204,11 +202,17 @@
 
   async function boot() {
     try {
-      setProgress(8, "Đang tải ranh giới tỉnh/thành…");
+      setProgress(5, "Đang tải bảng màu tỉnh…");
+      const colorTable = await loadJson("data/province-colors.json");
+      for (const [code, palette] of Object.entries(colorTable)) {
+        state.provinceColors.set(String(code), palette);
+      }
+
+      setProgress(15, "Đang tải ranh giới tỉnh/thành…");
       const provinces = await loadJson("data/provinces.geojson");
-      setProgress(35, "Đang tải 3.321 xã/phường…");
+      setProgress(40, "Đang tải 3.321 xã/phường…");
       const wards = await loadJson("data/wards.geojson");
-      setProgress(75, "Đang vẽ bản đồ…");
+      setProgress(78, "Đang vẽ bản đồ…");
 
       state.provinces = provinces;
       state.wards = wards;
@@ -220,10 +224,12 @@
       wardLayer.addData(wards);
 
       setProgress(92, "Đang dựng danh sách…");
+      buildLegend();
       buildTree();
       refreshLabels();
       applyMode("both");
       updateScale();
+      syncBasemapUI();
 
       setProgress(100, "Hoàn tất");
       setTimeout(() => el.loader.classList.add("hidden"), 250);
@@ -241,7 +247,6 @@
 
     for (const f of state.provinces.features) {
       state.provinceIndex.set(f.properties.code, f);
-      colorForProvince(f.properties.code);
     }
     for (const f of state.wards.features) {
       const p = f.properties;
@@ -252,6 +257,23 @@
     }
   }
 
+  function buildLegend() {
+    if (!el.legend) return;
+    const sorted = [...state.provinces.features].sort((a, b) =>
+      (a.properties.name || "").localeCompare(b.properties.name || "", "vi")
+    );
+    el.legend.innerHTML = "";
+    const frag = document.createDocumentFragment();
+    for (const pf of sorted) {
+      const c = colorForProvince(pf.properties.code);
+      const sw = document.createElement("span");
+      sw.style.background = c.fill;
+      sw.title = pf.properties.name;
+      frag.appendChild(sw);
+    }
+    el.legend.appendChild(frag);
+  }
+
   function buildTree() {
     const frag = document.createDocumentFragment();
     const sorted = [...state.provinces.features].sort((a, b) =>
@@ -260,10 +282,21 @@
 
     for (const pf of sorted) {
       const p = pf.properties;
+      const c = colorForProvince(p.code);
       const details = document.createElement("details");
       const summary = document.createElement("summary");
       const wards = state.wardsByProvince.get(p.code) || [];
-      summary.textContent = `${p.name} (${wards.length})`;
+
+      const dot = document.createElement("span");
+      dot.className = "dot";
+      dot.style.background = c.fill;
+      summary.appendChild(dot);
+      summary.appendChild(document.createTextNode(p.name));
+      const count = document.createElement("span");
+      count.className = "count";
+      count.textContent = String(wards.length);
+      summary.appendChild(count);
+
       summary.addEventListener("dblclick", (e) => {
         e.preventDefault();
         selectUnit("province", p.code, { fit: true, openPopup: true });
@@ -271,9 +304,8 @@
 
       const provBtn = document.createElement("button");
       provBtn.type = "button";
-      provBtn.textContent = `→ Xem toàn tỉnh`;
-      provBtn.style.fontWeight = "600";
-      provBtn.style.color = "#8b1a1a";
+      provBtn.className = "prov-link";
+      provBtn.textContent = "→ Xem toàn tỉnh";
       provBtn.addEventListener("click", () =>
         selectUnit("province", p.code, { fit: true, openPopup: true })
       );
@@ -315,10 +347,15 @@
     const p = feature.properties;
     const province =
       level === "province" ? p : state.provinceIndex.get(p.provinceCode)?.properties;
+    const colorCode = level === "province" ? p.code : p.provinceCode;
+    const c = colorForProvince(colorCode);
 
     el.info.classList.remove("empty");
     el.info.innerHTML = `
-      <div class="title">${escapeHtml(unitLabel(level, p))}</div>
+      <div class="swatch-row">
+        <span class="swatch" style="background:${c.fill}"></span>
+        <div class="title">${escapeHtml(unitLabel(level, p))}</div>
+      </div>
       <dl>
         <dt>Cấp</dt><dd>${level === "province" ? "Tỉnh / Thành phố" : "Xã / Phường / Đặc khu"}</dd>
         <dt>Mã</dt><dd>${escapeHtml(p.code)}</dd>
@@ -447,10 +484,8 @@
       .replaceAll('"', "&quot;");
   }
 
-  // Measure tool
   const measureLayer = L.layerGroup().addTo(map);
   let measurePoints = [];
-  let measureLine = null;
 
   function haversineKm(a, b) {
     const R = 6371;
@@ -476,12 +511,12 @@
   function redrawMeasure() {
     measureLayer.clearLayers();
     measurePoints.forEach((ll) => {
-      L.circleMarker(ll, { radius: 4, color: "#fff", fillColor: "#c62828", fillOpacity: 1, weight: 2 }).addTo(
+      L.circleMarker(ll, { radius: 4, color: "#fff", fillColor: "#2dd4bf", fillOpacity: 1, weight: 2 }).addTo(
         measureLayer
       );
     });
     if (measurePoints.length >= 2) {
-      measureLine = L.polyline(measurePoints, { color: "#ffeb3b", weight: 3 }).addTo(measureLayer);
+      L.polyline(measurePoints, { color: "#fbbf24", weight: 3 }).addTo(measureLayer);
       const km = totalMeasureKm();
       const label = km < 1 ? `${(km * 1000).toFixed(0)} m` : `${km.toFixed(2)} km`;
       L.tooltip({ permanent: true, direction: "right", className: "geo-label geo-label-ward" })
@@ -531,19 +566,12 @@
   });
 
   function updateScale() {
-    const center = map.getCenter();
     const y = map.getSize().y / 2;
-    const maxMeters =
-      map.distance(map.containerPointToLatLng([0, y]), map.containerPointToLatLng([100, y]));
-    const meters = maxMeters;
-    let text;
-    if (meters >= 1000) text = `~ ${(meters / 1000).toFixed(1)} km / 100px`;
-    else text = `~ ${Math.round(meters)} m / 100px`;
-    el.scaleText.textContent = text;
-    void center;
+    const meters = map.distance(map.containerPointToLatLng([0, y]), map.containerPointToLatLng([100, y]));
+    el.scaleText.textContent =
+      meters >= 1000 ? `~ ${(meters / 1000).toFixed(1)} km / 100px` : `~ ${Math.round(meters)} m / 100px`;
   }
 
-  // Search
   el.search.addEventListener("input", () => {
     const q = el.search.value.trim().toLowerCase();
     if (q.length < 2) {
@@ -570,12 +598,14 @@
 
     el.searchResults.hidden = hits.length === 0;
     el.searchResults.innerHTML = hits
-      .map(
-        (h) => `<button type="button" data-level="${h.level}" data-code="${escapeHtml(h.p.code)}">
-          ${escapeHtml(h.p.fullName || h.p.name)}
+      .map((h) => {
+        const colorCode = h.level === "province" ? h.p.code : h.p.provinceCode;
+        const fill = colorForProvince(colorCode).fill;
+        return `<button type="button" data-level="${h.level}" data-code="${escapeHtml(h.p.code)}">
+          <span class="hit-swatch" style="background:${fill}"></span>${escapeHtml(h.p.fullName || h.p.name)}
           <div class="meta">${h.level === "province" ? "Tỉnh/TP" : "Xã/phường"} · ${escapeHtml(h.p.code)}</div>
-        </button>`
-      )
+        </button>`;
+      })
       .join("");
   });
 
@@ -599,12 +629,10 @@
 
   el.toggleSidebar.addEventListener("click", () => {
     el.app.classList.toggle("sidebar-open");
-    // desktop: also toggle sidebar visibility via class
     if (!window.matchMedia("(max-width: 860px)").matches) {
       const aside = document.getElementById("sidebar");
       const hidden = aside.style.display === "none";
       aside.style.display = hidden ? "" : "none";
-      // force map resize
       setTimeout(() => map.invalidateSize(), 50);
     }
   });
@@ -630,7 +658,7 @@
     map.locate({ setView: true, maxZoom: 14 });
   });
   map.on("locationfound", (e) => {
-    L.circleMarker(e.latlng, { radius: 7, color: "#fff", fillColor: "#2196f3", fillOpacity: 1, weight: 2 }).addTo(
+    L.circleMarker(e.latlng, { radius: 7, color: "#fff", fillColor: "#2dd4bf", fillOpacity: 1, weight: 2 }).addTo(
       map
     );
   });

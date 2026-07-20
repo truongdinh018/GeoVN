@@ -1,0 +1,240 @@
+{
+  "01": {
+    "name": "Hà Nội",
+    "fill": "#9942d7",
+    "stroke": "#632f91",
+    "soft": "#c391e7",
+    "softStroke": "#7937ae"
+  },
+  "04": {
+    "name": "Cao Bằng",
+    "fill": "#d77642",
+    "stroke": "#895035",
+    "soft": "#e7af91",
+    "softStroke": "#aa603a"
+  },
+  "08": {
+    "name": "Tuyên Quang",
+    "fill": "#56d322",
+    "stroke": "#398921",
+    "soft": "#9ce57e",
+    "softStroke": "#45a821"
+  },
+  "11": {
+    "name": "Điện Biên",
+    "fill": "#b913c3",
+    "stroke": "#761285",
+    "soft": "#d676dc",
+    "softStroke": "#92129f"
+  },
+  "12": {
+    "name": "Lai Châu",
+    "fill": "#c38f13",
+    "stroke": "#7d5f17",
+    "soft": "#dcbe76",
+    "softStroke": "#9a7315"
+  },
+  "14": {
+    "name": "Sơn La",
+    "fill": "#13c3a4",
+    "stroke": "#0f7f71",
+    "soft": "#76dcca",
+    "softStroke": "#119c86"
+  },
+  "15": {
+    "name": "Lào Cai",
+    "fill": "#7013c3",
+    "stroke": "#491285",
+    "soft": "#ac76dc",
+    "softStroke": "#59129f"
+  },
+  "19": {
+    "name": "Thái Nguyên",
+    "fill": "#42c5d7",
+    "stroke": "#2d8091",
+    "soft": "#91dde7",
+    "softStroke": "#359dae"
+  },
+  "20": {
+    "name": "Lạng Sơn",
+    "fill": "#be22d3",
+    "stroke": "#791b8e",
+    "soft": "#d97ee5",
+    "softStroke": "#961eab"
+  },
+  "22": {
+    "name": "Quảng Ninh",
+    "fill": "#42d788",
+    "stroke": "#2d8c60",
+    "soft": "#91e7b9",
+    "softStroke": "#35ab71"
+  },
+  "24": {
+    "name": "Bắc Ninh",
+    "fill": "#c34713",
+    "stroke": "#7d3217",
+    "soft": "#dc9476",
+    "softStroke": "#9a3b15"
+  },
+  "25": {
+    "name": "Phú Thọ",
+    "fill": "#d32222",
+    "stroke": "#871b21",
+    "soft": "#e57e7e",
+    "softStroke": "#a71e21"
+  },
+  "31": {
+    "name": "Hải Phòng",
+    "fill": "#5c42d7",
+    "stroke": "#3d2f91",
+    "soft": "#a091e7",
+    "softStroke": "#4a37ae"
+  },
+  "33": {
+    "name": "Hưng Yên",
+    "fill": "#13c35b",
+    "stroke": "#0f7f44",
+    "soft": "#76dc9f",
+    "softStroke": "#119c4e"
+  },
+  "37": {
+    "name": "Ninh Bình",
+    "fill": "#1370c3",
+    "stroke": "#0f4c85",
+    "soft": "#76acdc",
+    "softStroke": "#115b9f"
+  },
+  "38": {
+    "name": "Thanh Hoá",
+    "fill": "#85c313",
+    "stroke": "#567f17",
+    "soft": "#b8dc76",
+    "softStroke": "#6a9c15"
+  },
+  "40": {
+    "name": "Nghệ An",
+    "fill": "#1328c3",
+    "stroke": "#0f1f85",
+    "soft": "#7682dc",
+    "softStroke": "#11239f"
+  },
+  "42": {
+    "name": "Hà Tĩnh",
+    "fill": "#d7d742",
+    "stroke": "#898c35",
+    "soft": "#e7e791",
+    "softStroke": "#aaab3a"
+  },
+  "44": {
+    "name": "Quảng Trị",
+    "fill": "#2242d3",
+    "stroke": "#192f8e",
+    "soft": "#7e91e5",
+    "softStroke": "#1c37ab"
+  },
+  "46": {
+    "name": "Huế",
+    "fill": "#d39422",
+    "stroke": "#876221",
+    "soft": "#e5c07e",
+    "softStroke": "#a77721"
+  },
+  "48": {
+    "name": "Đà Nẵng",
+    "fill": "#22b3d3",
+    "stroke": "#19758e",
+    "soft": "#7ed2e5",
+    "softStroke": "#1c8fab"
+  },
+  "51": {
+    "name": "Quảng Ngãi",
+    "fill": "#d74276",
+    "stroke": "#892f55",
+    "soft": "#e791af",
+    "softStroke": "#aa3763"
+  },
+  "52": {
+    "name": "Gia Lai",
+    "fill": "#c8d322",
+    "stroke": "#808921",
+    "soft": "#dfe57e",
+    "softStroke": "#9ea821"
+  },
+  "56": {
+    "name": "Khánh Hoà",
+    "fill": "#42d74a",
+    "stroke": "#2d8c3a",
+    "soft": "#91e796",
+    "softStroke": "#35ab40"
+  },
+  "66": {
+    "name": "Đắk Lắk",
+    "fill": "#22d3a9",
+    "stroke": "#198974",
+    "soft": "#7ee5cd",
+    "softStroke": "#1ca88a"
+  },
+  "68": {
+    "name": "Lâm Đồng",
+    "fill": "#c3135c",
+    "stroke": "#7d1245",
+    "soft": "#dc76a0",
+    "softStroke": "#9a124e"
+  },
+  "75": {
+    "name": "Đồng Nai",
+    "fill": "#3dc313",
+    "stroke": "#2a7f17",
+    "soft": "#8edc76",
+    "softStroke": "#329c15"
+  },
+  "79": {
+    "name": "Hồ Chí Minh",
+    "fill": "#4288d7",
+    "stroke": "#2d5b91",
+    "soft": "#91b9e7",
+    "softStroke": "#356eae"
+  },
+  "80": {
+    "name": "Tây Ninh",
+    "fill": "#d3229f",
+    "stroke": "#871b6e",
+    "soft": "#e57ec7",
+    "softStroke": "#a71e83"
+  },
+  "82": {
+    "name": "Đồng Tháp",
+    "fill": "#99d742",
+    "stroke": "#638c35",
+    "soft": "#c3e791",
+    "softStroke": "#79ab3a"
+  },
+  "86": {
+    "name": "Vĩnh Long",
+    "fill": "#d742b4",
+    "stroke": "#892f7b",
+    "soft": "#e791d3",
+    "softStroke": "#aa3793"
+  },
+  "91": {
+    "name": "An Giang",
+    "fill": "#d3222d",
+    "stroke": "#871b28",
+    "soft": "#e57e85",
+    "softStroke": "#a71e2a"
+  },
+  "92": {
+    "name": "Cần Thơ",
+    "fill": "#4c22d3",
+    "stroke": "#331b8e",
+    "soft": "#977ee5",
+    "softStroke": "#3d1eab"
+  },
+  "96": {
+    "name": "Cà Mau",
+    "fill": "#22d337",
+    "stroke": "#19892e",
+    "soft": "#7ee58b",
+    "softStroke": "#1ca831"
+  }
+}
