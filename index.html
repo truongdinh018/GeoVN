@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GeoVN — Bản đồ hành chính Việt Nam</title>
+  <title>GeoVN — Bản đồ tra cứu đơn vị hành chính</title>
   <meta name="description" content="Bản đồ GIS đơn vị hành chính Việt Nam: 34 tỉnh/thành và 3.321 xã/phường." />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -14,13 +14,13 @@
     <aside id="sidebar">
       <header class="brand">
         <h1>GeoVN</h1>
-        <p>Bản đồ hành chính Việt Nam</p>
+        <p>Bản đồ tra cứu đơn vị hành chính</p>
       </header>
 
       <section class="panel">
         <label class="field">
           <span>Tìm kiếm</span>
-          <input id="search" type="search" placeholder="Tỉnh, xã, phường…" autocomplete="off" />
+          <input id="search" type="search" placeholder="Nhập tên tỉnh, xã, phường…" autocomplete="off" />
         </label>
         <div id="search-results" class="search-results" hidden></div>
       </section>
@@ -29,7 +29,7 @@
         <h2>Lớp hiển thị</h2>
         <label class="check"><input type="checkbox" id="layer-provinces" checked /> Tỉnh / Thành phố (34)</label>
         <label class="check"><input type="checkbox" id="layer-wards" checked /> Xã / Phường / Đặc khu (3.321)</label>
-        <label class="check"><input type="checkbox" id="layer-labels" checked /> Nhãn tên (tỉnh / xã-phường)</label>
+        <label class="check"><input type="checkbox" id="layer-labels" checked /> Hiện tên trên bản đồ</label>
       </section>
 
       <section class="panel">
@@ -47,7 +47,7 @@
       </section>
 
       <section class="panel tree-panel">
-        <h2>Danh sách đơn vị</h2>
+        <h2>Danh mục đơn vị hành chính</h2>
         <div id="tree" class="tree"></div>
       </section>
 
@@ -60,6 +60,40 @@
 
     <main id="map-wrap">
       <div id="map"></div>
+
+      <div class="map-toolbar top-left" role="toolbar" aria-label="Công cụ bản đồ">
+        <button type="button" id="toggle-sidebar" class="tool-btn" title="Danh mục" aria-label="Danh mục">☰</button>
+        <button type="button" id="tool-search" class="tool-btn" title="Tìm kiếm" aria-label="Tìm kiếm">⌕</button>
+        <button type="button" id="tool-measure" class="tool-btn" title="Đo khoảng cách" aria-label="Đo khoảng cách">📏</button>
+        <button type="button" id="tool-layers" class="tool-btn" title="Lớp bản đồ nền" aria-label="Lớp bản đồ nền">⧉</button>
+      </div>
+
+      <div class="map-toolbar right" role="toolbar" aria-label="Điều khiển bản đồ">
+        <button type="button" id="tool-zoom-in" class="tool-btn" title="Phóng to">+</button>
+        <button type="button" id="tool-zoom-out" class="tool-btn" title="Thu nhỏ">−</button>
+        <button type="button" id="tool-home" class="tool-btn" title="Toàn quốc">⌂</button>
+        <button type="button" id="tool-locate" class="tool-btn" title="Vị trí của tôi">◎</button>
+        <button type="button" id="tool-fullscreen" class="tool-btn" title="Toàn màn hình">⛶</button>
+      </div>
+
+      <div id="basemap-panel" class="float-panel" hidden>
+        <h3>Bản đồ nền</h3>
+        <label class="radio"><input type="radio" name="basemap" value="satellite" checked /> Ảnh vệ tinh</label>
+        <label class="radio"><input type="radio" name="basemap" value="light" /> Bản đồ nền sáng</label>
+        <label class="radio"><input type="radio" name="basemap" value="osm" /> OpenStreetMap</label>
+      </div>
+
+      <div id="measure-hint" class="measure-hint" hidden>Click các điểm để đo · Double-click hoặc Esc để kết thúc</div>
+
+      <div id="status-bar" class="status-bar">
+        <div class="basemap-toggles">
+          <button type="button" class="status-chip active" data-basemap="satellite">Ảnh vệ tinh</button>
+          <button type="button" class="status-chip" data-basemap="light">Bản đồ nền</button>
+        </div>
+        <div id="coords" class="coords">X: — | Y: —</div>
+        <div id="scale-text" class="scale-text"></div>
+      </div>
+
       <div id="loader" class="loader">
         <div class="loader-card">
           <div class="spinner"></div>
@@ -67,7 +101,6 @@
           <div class="progress"><div id="progress-bar"></div></div>
         </div>
       </div>
-      <button type="button" id="toggle-sidebar" aria-label="Thu gọn sidebar">☰</button>
     </main>
   </div>
 

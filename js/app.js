@@ -15,14 +15,14 @@
     mode: "both",
     showLabels: true,
     selected: null,
+    basemap: "satellite",
+    measuring: false,
   };
 
-  /** Distinct hues for 34 provinces (stable by code). */
   function colorForProvince(code) {
     if (state.provinceColors.has(code)) return state.provinceColors.get(code);
     let h = 0;
     for (let i = 0; i < String(code).length; i++) h = (h * 31 + String(code).charCodeAt(i)) >>> 0;
-    // golden-angle spacing → visually distinct neighbors
     const hue = (h * 137.508) % 360;
     const fill = `hsl(${hue.toFixed(1)} 72% 52%)`;
     const stroke = `hsl(${hue.toFixed(1)} 78% 32%)`;
@@ -50,10 +50,15 @@
     layerLabels: document.getElementById("layer-labels"),
     toggleSidebar: document.getElementById("toggle-sidebar"),
     app: document.getElementById("app"),
+    basemapPanel: document.getElementById("basemap-panel"),
+    measureHint: document.getElementById("measure-hint"),
+    coords: document.getElementById("coords"),
+    scaleText: document.getElementById("scale-text"),
+    toolMeasure: document.getElementById("tool-measure"),
   };
 
   const map = L.map("map", {
-    zoomControl: true,
+    zoomControl: false,
     preferCanvas: true,
     maxBounds: [
       [5, 95],
@@ -62,12 +67,50 @@
     maxBoundsViscosity: 0.6,
   }).fitBounds(VN_BOUNDS, { padding: [20, 20] });
 
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-    subdomains: "abcd",
-    maxZoom: 18,
-  }).addTo(map);
+  const basemaps = {
+    satellite: L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      {
+        attribution: "Tiles &copy; Esri",
+        maxZoom: 19,
+      }
+    ),
+    light: L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+      subdomains: "abcd",
+      maxZoom: 18,
+    }),
+    osm: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap",
+      maxZoom: 19,
+    }),
+  };
+
+  let activeBase = basemaps.satellite.addTo(map);
+
+  function setBasemap(name) {
+    if (!basemaps[name] || state.basemap === name) {
+      state.basemap = name;
+      syncBasemapUI();
+      return;
+    }
+    map.removeLayer(activeBase);
+    activeBase = basemaps[name].addTo(map);
+    state.basemap = name;
+    syncBasemapUI();
+    provinceLayer.setStyle(provinceStyle);
+    wardLayer.setStyle(wardStyle);
+  }
+
+  function syncBasemapUI() {
+    document.querySelectorAll('input[name="basemap"]').forEach((r) => {
+      r.checked = r.value === state.basemap;
+    });
+    document.querySelectorAll(".status-chip[data-basemap]").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.basemap === state.basemap);
+    });
+  }
 
   const provinceLayer = L.geoJSON(null, {
     style: provinceStyle,
@@ -85,12 +128,13 @@
     const code = feature.properties.code;
     const c = colorForProvince(code);
     const selected = state.selected?.code === code && state.selected?.level === "province";
+    const sat = state.basemap === "satellite";
     return {
-      color: c.stroke,
-      weight: selected ? 2.8 : 1.5,
+      color: sat ? "#ff2db8" : c.stroke,
+      weight: selected ? 3 : sat ? 2 : 1.5,
       opacity: 0.95,
       fillColor: selected ? darkenSelected(c.fill) : c.fill,
-      fillOpacity: state.mode === "ward" ? 0.08 : selected ? 0.72 : 0.55,
+      fillOpacity: state.mode === "ward" ? 0.04 : selected ? 0.55 : sat ? 0.22 : 0.5,
     };
   }
 
@@ -98,38 +142,53 @@
     const p = feature.properties;
     const c = colorForProvince(p.provinceCode || "00");
     const selected = state.selected?.code === p.code && state.selected?.level === "ward";
+    const sat = state.basemap === "satellite";
     return {
-      color: selected ? c.stroke : c.softStroke,
-      weight: selected ? 2 : 0.55,
+      color: selected ? "#fff" : sat ? "#ff4ec4" : c.softStroke,
+      weight: selected ? 2.4 : sat ? 1.4 : 0.55,
       opacity: 0.95,
       fillColor: selected ? c.fill : c.soft,
-      fillOpacity: state.mode === "province" ? 0.05 : selected ? 0.75 : 0.55,
+      fillOpacity: state.mode === "province" ? 0.02 : selected ? 0.45 : sat ? 0.08 : 0.45,
     };
+  }
+
+  function unitLabel(level, p) {
+    return p.fullName || p.name || p.code;
   }
 
   function bindUnit(feature, layer, level) {
     const p = feature.properties;
     layer.on({
       mouseover: (e) => {
+        if (state.measuring) return;
         e.target.setStyle({
-          weight: level === "province" ? 2.5 : 1.5,
-          fillOpacity: 0.7,
+          weight: level === "province" ? 3 : 2.2,
+          fillOpacity: Math.min(0.55, (e.target.options.fillOpacity || 0.2) + 0.2),
         });
-        if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
-          e.target.bringToFront();
-        }
+        if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) e.target.bringToFront();
       },
       mouseout: (e) => {
         if (level === "province") provinceLayer.resetStyle(e.target);
         else wardLayer.resetStyle(e.target);
       },
-      click: () => selectUnit(level, p.code, { fit: false }),
+      click: () => {
+        if (state.measuring) return;
+        selectUnit(level, p.code, { fit: false, openPopup: true });
+      },
     });
+  }
 
-    layer.bindPopup(
-      `<div class="popup-title">${escapeHtml(p.fullName || p.name)}</div>
-       <div>${level === "province" ? "Cấp tỉnh" : "Cấp xã/phường"} · Mã ${escapeHtml(p.code)}</div>`
-    );
+  function popupHtml(level, p, province) {
+    const parent =
+      level === "ward" && province
+        ? `<div class="popup-sub">(${escapeHtml(province.fullName || province.name)})</div>`
+        : "";
+    return `<div class="popup-title">${escapeHtml(unitLabel(level, p))}</div>
+      ${parent}
+      <div class="popup-meta">
+        Mã: <b>${escapeHtml(p.code)}</b><br/>
+        Diện tích: <b>${p.areaKm2 != null ? `${Number(p.areaKm2).toLocaleString("vi-VN")} km²` : "—"}</b>
+      </div>`;
   }
 
   function setProgress(pct, text) {
@@ -164,6 +223,7 @@
       buildTree();
       refreshLabels();
       applyMode("both");
+      updateScale();
 
       setProgress(100, "Hoàn tất");
       setTimeout(() => el.loader.classList.add("hidden"), 250);
@@ -204,12 +264,9 @@
       const summary = document.createElement("summary");
       const wards = state.wardsByProvince.get(p.code) || [];
       summary.textContent = `${p.name} (${wards.length})`;
-      summary.addEventListener("click", (e) => {
-        // allow expand; also select province on double intent via button below
-      });
       summary.addEventListener("dblclick", (e) => {
         e.preventDefault();
-        selectUnit("province", p.code, { fit: true });
+        selectUnit("province", p.code, { fit: true, openPopup: true });
       });
 
       const provBtn = document.createElement("button");
@@ -217,7 +274,9 @@
       provBtn.textContent = `→ Xem toàn tỉnh`;
       provBtn.style.fontWeight = "600";
       provBtn.style.color = "#8b1a1a";
-      provBtn.addEventListener("click", () => selectUnit("province", p.code, { fit: true }));
+      provBtn.addEventListener("click", () =>
+        selectUnit("province", p.code, { fit: true, openPopup: true })
+      );
 
       const ul = document.createElement("ul");
       const wardSorted = [...wards].sort((a, b) =>
@@ -228,7 +287,9 @@
         const btn = document.createElement("button");
         btn.type = "button";
         btn.textContent = wf.properties.fullName || wf.properties.name;
-        btn.addEventListener("click", () => selectUnit("ward", wf.properties.code, { fit: true }));
+        btn.addEventListener("click", () =>
+          selectUnit("ward", wf.properties.code, { fit: true, openPopup: true })
+        );
         li.appendChild(btn);
         ul.appendChild(li);
       }
@@ -242,7 +303,7 @@
     el.tree.appendChild(frag);
   }
 
-  function selectUnit(level, code, { fit = true } = {}) {
+  function selectUnit(level, code, { fit = true, openPopup = false } = {}) {
     const feature =
       level === "province" ? state.provinceIndex.get(code) : state.wardIndex.get(code);
     if (!feature) return;
@@ -253,13 +314,11 @@
 
     const p = feature.properties;
     const province =
-      level === "province"
-        ? p
-        : state.provinceIndex.get(p.provinceCode)?.properties;
+      level === "province" ? p : state.provinceIndex.get(p.provinceCode)?.properties;
 
     el.info.classList.remove("empty");
     el.info.innerHTML = `
-      <div class="title">${escapeHtml(p.fullName || p.name)}</div>
+      <div class="title">${escapeHtml(unitLabel(level, p))}</div>
       <dl>
         <dt>Cấp</dt><dd>${level === "province" ? "Tỉnh / Thành phố" : "Xã / Phường / Đặc khu"}</dd>
         <dt>Mã</dt><dd>${escapeHtml(p.code)}</dd>
@@ -272,12 +331,14 @@
         <dt>Diện tích</dt><dd>${p.areaKm2 != null ? `${Number(p.areaKm2).toLocaleString("vi-VN")} km²` : "—"}</dd>
       </dl>`;
 
-    if (fit) {
-      const layer = findLayer(level, code);
-      if (layer) {
-        map.fitBounds(layer.getBounds(), { padding: [40, 40], maxZoom: level === "ward" ? 12 : 9 });
-        layer.openPopup();
+    const layer = findLayer(level, code);
+    if (layer) {
+      layer.unbindPopup();
+      layer.bindPopup(popupHtml(level, p, province));
+      if (fit) {
+        map.fitBounds(layer.getBounds(), { padding: [48, 48], maxZoom: level === "ward" ? 13 : 9 });
       }
+      if (openPopup || fit) layer.openPopup();
     }
 
     if (window.matchMedia("(max-width: 860px)").matches) {
@@ -345,12 +406,11 @@
     const zoom = map.getZoom();
     const bounds = map.getBounds().pad(0.05);
 
-    // Province names when zoomed out
     if (el.layerProvinces.checked && zoom < 9) {
       provinceLayer.eachLayer((layer) => {
-        const name = layer.feature?.properties?.name;
-        if (!name) return;
-        layer.bindTooltip(name, {
+        const p = layer.feature?.properties;
+        if (!p) return;
+        layer.bindTooltip(unitLabel("province", p), {
           permanent: true,
           direction: "center",
           className: "geo-label geo-label-province",
@@ -359,17 +419,16 @@
       });
     }
 
-    // Ward / commune names when zoomed in (viewport only for performance)
     if (el.layerWards.checked && zoom >= 9) {
       let shown = 0;
-      const maxLabels = zoom >= 12 ? 800 : zoom >= 10 ? 400 : 220;
+      const maxLabels = zoom >= 13 ? 900 : zoom >= 11 ? 500 : 280;
       wardLayer.eachLayer((layer) => {
         if (shown >= maxLabels) return;
         const b = layer.getBounds?.();
         if (!b || !bounds.intersects(b)) return;
-        const name = layer.feature?.properties?.name;
-        if (!name) return;
-        layer.bindTooltip(name, {
+        const p = layer.feature?.properties;
+        if (!p) return;
+        layer.bindTooltip(unitLabel("ward", p), {
           permanent: true,
           direction: "center",
           className: "geo-label geo-label-ward",
@@ -386,6 +445,102 @@
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;");
+  }
+
+  // Measure tool
+  const measureLayer = L.layerGroup().addTo(map);
+  let measurePoints = [];
+  let measureLine = null;
+
+  function haversineKm(a, b) {
+    const R = 6371;
+    const toRad = (d) => (d * Math.PI) / 180;
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const lat1 = toRad(a.lat);
+    const lat2 = toRad(b.lat);
+    const h =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  function totalMeasureKm() {
+    let sum = 0;
+    for (let i = 1; i < measurePoints.length; i++) {
+      sum += haversineKm(measurePoints[i - 1], measurePoints[i]);
+    }
+    return sum;
+  }
+
+  function redrawMeasure() {
+    measureLayer.clearLayers();
+    measurePoints.forEach((ll) => {
+      L.circleMarker(ll, { radius: 4, color: "#fff", fillColor: "#c62828", fillOpacity: 1, weight: 2 }).addTo(
+        measureLayer
+      );
+    });
+    if (measurePoints.length >= 2) {
+      measureLine = L.polyline(measurePoints, { color: "#ffeb3b", weight: 3 }).addTo(measureLayer);
+      const km = totalMeasureKm();
+      const label = km < 1 ? `${(km * 1000).toFixed(0)} m` : `${km.toFixed(2)} km`;
+      L.tooltip({ permanent: true, direction: "right", className: "geo-label geo-label-ward" })
+        .setContent(label)
+        .setLatLng(measurePoints[measurePoints.length - 1])
+        .addTo(measureLayer);
+    }
+  }
+
+  function stopMeasure() {
+    state.measuring = false;
+    el.toolMeasure.classList.remove("active");
+    el.measureHint.hidden = true;
+    map.getContainer().style.cursor = "";
+  }
+
+  function clearMeasure() {
+    measurePoints = [];
+    measureLayer.clearLayers();
+  }
+
+  function toggleMeasure() {
+    if (state.measuring) {
+      stopMeasure();
+      return;
+    }
+    state.measuring = true;
+    clearMeasure();
+    el.toolMeasure.classList.add("active");
+    el.measureHint.hidden = false;
+    el.basemapPanel.hidden = true;
+    map.getContainer().style.cursor = "crosshair";
+  }
+
+  map.on("click", (e) => {
+    if (!state.measuring) return;
+    measurePoints.push(e.latlng);
+    redrawMeasure();
+  });
+  map.on("dblclick", (e) => {
+    if (!state.measuring) return;
+    L.DomEvent.stop(e);
+    stopMeasure();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && state.measuring) stopMeasure();
+  });
+
+  function updateScale() {
+    const center = map.getCenter();
+    const y = map.getSize().y / 2;
+    const maxMeters =
+      map.distance(map.containerPointToLatLng([0, y]), map.containerPointToLatLng([100, y]));
+    const meters = maxMeters;
+    let text;
+    if (meters >= 1000) text = `~ ${(meters / 1000).toFixed(1)} km / 100px`;
+    else text = `~ ${Math.round(meters)} m / 100px`;
+    el.scaleText.textContent = text;
+    void center;
   }
 
   // Search
@@ -427,7 +582,7 @@
   el.searchResults.addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-code]");
     if (!btn) return;
-    selectUnit(btn.dataset.level, btn.dataset.code, { fit: true });
+    selectUnit(btn.dataset.level, btn.dataset.code, { fit: true, openPopup: true });
     el.searchResults.hidden = true;
   });
 
@@ -444,9 +599,65 @@
 
   el.toggleSidebar.addEventListener("click", () => {
     el.app.classList.toggle("sidebar-open");
+    // desktop: also toggle sidebar visibility via class
+    if (!window.matchMedia("(max-width: 860px)").matches) {
+      const aside = document.getElementById("sidebar");
+      const hidden = aside.style.display === "none";
+      aside.style.display = hidden ? "" : "none";
+      // force map resize
+      setTimeout(() => map.invalidateSize(), 50);
+    }
   });
 
-  map.on("zoomend moveend", refreshLabels);
+  document.getElementById("tool-search").addEventListener("click", () => {
+    el.app.classList.add("sidebar-open");
+    document.getElementById("sidebar").style.display = "";
+    el.search.focus();
+    setTimeout(() => map.invalidateSize(), 50);
+  });
+
+  document.getElementById("tool-layers").addEventListener("click", () => {
+    el.basemapPanel.hidden = !el.basemapPanel.hidden;
+  });
+
+  document.getElementById("tool-measure").addEventListener("click", toggleMeasure);
+  document.getElementById("tool-zoom-in").addEventListener("click", () => map.zoomIn());
+  document.getElementById("tool-zoom-out").addEventListener("click", () => map.zoomOut());
+  document.getElementById("tool-home").addEventListener("click", () =>
+    map.fitBounds(VN_BOUNDS, { padding: [20, 20] })
+  );
+  document.getElementById("tool-locate").addEventListener("click", () => {
+    map.locate({ setView: true, maxZoom: 14 });
+  });
+  map.on("locationfound", (e) => {
+    L.circleMarker(e.latlng, { radius: 7, color: "#fff", fillColor: "#2196f3", fillOpacity: 1, weight: 2 }).addTo(
+      map
+    );
+  });
+  map.on("locationerror", () => alert("Không lấy được vị trí. Hãy cho phép truy cập định vị."));
+
+  document.getElementById("tool-fullscreen").addEventListener("click", () => {
+    const root = document.documentElement;
+    if (!document.fullscreenElement) root.requestFullscreen?.();
+    else document.exitFullscreen?.();
+  });
+
+  document.querySelectorAll('input[name="basemap"]').forEach((r) => {
+    r.addEventListener("change", () => {
+      if (r.checked) setBasemap(r.value);
+    });
+  });
+  document.querySelectorAll(".status-chip[data-basemap]").forEach((btn) => {
+    btn.addEventListener("click", () => setBasemap(btn.dataset.basemap));
+  });
+
+  map.on("mousemove", (e) => {
+    el.coords.textContent = `X: ${e.latlng.lng.toFixed(6)} | Y: ${e.latlng.lat.toFixed(6)}`;
+  });
+  map.on("zoomend moveend", () => {
+    refreshLabels();
+    updateScale();
+  });
 
   boot();
 })();
