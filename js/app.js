@@ -11,10 +11,31 @@
     provinceIndex: new Map(),
     wardIndex: new Map(),
     wardsByProvince: new Map(),
+    provinceColors: new Map(),
     mode: "both",
     showLabels: true,
     selected: null,
   };
+
+  /** Distinct hues for 34 provinces (stable by code). */
+  function colorForProvince(code) {
+    if (state.provinceColors.has(code)) return state.provinceColors.get(code);
+    let h = 0;
+    for (let i = 0; i < String(code).length; i++) h = (h * 31 + String(code).charCodeAt(i)) >>> 0;
+    // golden-angle spacing → visually distinct neighbors
+    const hue = (h * 137.508) % 360;
+    const fill = `hsl(${hue.toFixed(1)} 72% 52%)`;
+    const stroke = `hsl(${hue.toFixed(1)} 78% 32%)`;
+    const soft = `hsl(${hue.toFixed(1)} 70% 78%)`;
+    const softStroke = `hsl(${hue.toFixed(1)} 55% 38%)`;
+    const palette = { fill, stroke, soft, softStroke, hue };
+    state.provinceColors.set(code, palette);
+    return palette;
+  }
+
+  function darkenSelected(hslFill) {
+    return hslFill.replace(/(\d+(?:\.\d+)?)%\)$/, (_, l) => `${Math.max(28, Number(l) - 12)}%)`);
+  }
 
   const el = {
     loader: document.getElementById("loader"),
@@ -61,24 +82,28 @@
   }).addTo(map);
 
   function provinceStyle(feature) {
-    const selected = state.selected?.code === feature.properties.code && state.selected?.level === "province";
+    const code = feature.properties.code;
+    const c = colorForProvince(code);
+    const selected = state.selected?.code === code && state.selected?.level === "province";
     return {
-      color: "#7f1515",
-      weight: selected ? 2.5 : 1.4,
+      color: c.stroke,
+      weight: selected ? 2.8 : 1.5,
       opacity: 0.95,
-      fillColor: selected ? "#c62828" : "#e53935",
-      fillOpacity: state.mode === "ward" ? 0.05 : selected ? 0.55 : 0.38,
+      fillColor: selected ? darkenSelected(c.fill) : c.fill,
+      fillOpacity: state.mode === "ward" ? 0.08 : selected ? 0.72 : 0.55,
     };
   }
 
   function wardStyle(feature) {
-    const selected = state.selected?.code === feature.properties.code && state.selected?.level === "ward";
+    const p = feature.properties;
+    const c = colorForProvince(p.provinceCode || "00");
+    const selected = state.selected?.code === p.code && state.selected?.level === "ward";
     return {
-      color: selected ? "#4a0000" : "#b71c1c",
-      weight: selected ? 2 : 0.45,
-      opacity: 0.9,
-      fillColor: selected ? "#ef5350" : "#ffcdd2",
-      fillOpacity: state.mode === "province" ? 0.05 : selected ? 0.7 : 0.42,
+      color: selected ? c.stroke : c.softStroke,
+      weight: selected ? 2 : 0.55,
+      opacity: 0.95,
+      fillColor: selected ? c.fill : c.soft,
+      fillOpacity: state.mode === "province" ? 0.05 : selected ? 0.75 : 0.55,
     };
   }
 
@@ -156,6 +181,7 @@
 
     for (const f of state.provinces.features) {
       state.provinceIndex.set(f.properties.code, f);
+      colorForProvince(f.properties.code);
     }
     for (const f of state.wards.features) {
       const p = f.properties;
@@ -305,18 +331,53 @@
     refreshLabels();
   }
 
-  function refreshLabels() {
-    provinceLayer.eachLayer((layer) => {
+  function clearLayerTooltips(group) {
+    group.eachLayer((layer) => {
       if (layer.getTooltip()) layer.unbindTooltip();
-      if (state.showLabels && el.layerProvinces.checked && map.getZoom() <= 9) {
-        layer.bindTooltip(layer.feature.properties.name, {
+    });
+  }
+
+  function refreshLabels() {
+    clearLayerTooltips(provinceLayer);
+    clearLayerTooltips(wardLayer);
+    if (!state.showLabels) return;
+
+    const zoom = map.getZoom();
+    const bounds = map.getBounds().pad(0.05);
+
+    // Province names when zoomed out
+    if (el.layerProvinces.checked && zoom < 9) {
+      provinceLayer.eachLayer((layer) => {
+        const name = layer.feature?.properties?.name;
+        if (!name) return;
+        layer.bindTooltip(name, {
           permanent: true,
           direction: "center",
-          className: "geo-label",
+          className: "geo-label geo-label-province",
           interactive: false,
         });
-      }
-    });
+      });
+    }
+
+    // Ward / commune names when zoomed in (viewport only for performance)
+    if (el.layerWards.checked && zoom >= 9) {
+      let shown = 0;
+      const maxLabels = zoom >= 12 ? 800 : zoom >= 10 ? 400 : 220;
+      wardLayer.eachLayer((layer) => {
+        if (shown >= maxLabels) return;
+        const b = layer.getBounds?.();
+        if (!b || !bounds.intersects(b)) return;
+        const name = layer.feature?.properties?.name;
+        if (!name) return;
+        layer.bindTooltip(name, {
+          permanent: true,
+          direction: "center",
+          className: "geo-label geo-label-ward",
+          interactive: false,
+        });
+        shown += 1;
+      });
+    }
   }
 
   function escapeHtml(s) {
@@ -385,7 +446,7 @@
     el.app.classList.toggle("sidebar-open");
   });
 
-  map.on("zoomend", refreshLabels);
+  map.on("zoomend moveend", refreshLabels);
 
   boot();
 })();
