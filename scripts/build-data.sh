@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
-# Rebuild simplified GeoJSON from upstream vietnamese-provinces-database
+# Rebuild simplified GeoJSON from the canonical GIS data fork.
+# Primary source: truongdinh018/vietnamese-provinces-database
+# Upstream origin: thanglequoc/vietnamese-provinces-database (MIT)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD="${TMPDIR:-/tmp}/geovn-build"
-ZIP_URL="https://raw.githubusercontent.com/thanglequoc/vietnamese-provinces-database/master/json/vn_provinces_wards_geojson_2026-07-12__19_50_51.zip"
+
+DATA_OWNER="${DATA_OWNER:-truongdinh018}"
+DATA_REPO="${DATA_REPO:-vietnamese-provinces-database}"
+DATA_BRANCH="${DATA_BRANCH:-master}"
+DATA_ZIP="${DATA_ZIP:-vn_provinces_wards_geojson_2026-07-12__19_50_51.zip}"
+ZIP_URL="${ZIP_URL:-https://raw.githubusercontent.com/${DATA_OWNER}/${DATA_REPO}/${DATA_BRANCH}/json/${DATA_ZIP}}"
 
 mkdir -p "$BUILD" "$ROOT/data/wards"
+echo "Data source: ${DATA_OWNER}/${DATA_REPO}@${DATA_BRANCH}"
 echo "Downloading GeoJSON zip…"
-curl -L -o "$BUILD/geojson.zip" "$ZIP_URL"
+echo "  $ZIP_URL"
+curl -fL -o "$BUILD/geojson.zip" "$ZIP_URL"
 python3 - <<PY
 import zipfile
 from pathlib import Path
@@ -49,6 +58,22 @@ for f in sorted(root.glob("*.geojson")):
 out = {"type": "FeatureCollection", "features": features}
 json.dump(out, open("$ROOT/data/wards.geojson", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
 print("wards total", len(features))
+PY
+
+# Record canonical source used for this build
+python3 - <<PY
+import json
+from datetime import datetime, timezone
+meta = {
+  "primaryRepo": "${DATA_OWNER}/${DATA_REPO}",
+  "branch": "${DATA_BRANCH}",
+  "zip": "${DATA_ZIP}",
+  "zipUrl": "${ZIP_URL}",
+  "upstreamOrigin": "thanglequoc/vietnamese-provinces-database",
+  "builtAt": datetime.now(timezone.utc).isoformat(),
+}
+json.dump(meta, open("$ROOT/data/source.json", "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+print("wrote data/source.json")
 PY
 
 echo "Done → $ROOT/data"
