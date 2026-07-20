@@ -591,7 +591,7 @@
     const zoom = map.getZoom();
     const bounds = map.getBounds().pad(0.05);
 
-    if (el.layerProvinces.checked && zoom < 9) {
+    if (el.layerProvinces.checked) {
       provinceLayer.eachLayer((layer) => {
         const feature = layer.feature;
         if (!feature?.properties) return;
