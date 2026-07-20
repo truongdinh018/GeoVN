@@ -574,14 +574,19 @@
     return ll;
   }
 
-  function addLabelMarker(text, latlng, className) {
+  function addLabelMarker(text, latlng, className, level, code) {
     const icon = L.divIcon({
       className: `geo-label-marker ${className}`,
-      html: `<span>${escapeHtml(text)}</span>`,
-      iconSize: [0, 0],
+      html: `<span class="geo-label-hit">${escapeHtml(text)}</span>`,
+      iconSize: [1, 1],
       iconAnchor: [0, 0],
     });
-    L.marker(latlng, { icon, interactive: false, keyboard: false }).addTo(labelLayer);
+    const marker = L.marker(latlng, { icon, interactive: true, keyboard: false, zIndexOffset: level === "province" ? 400 : 200 }).addTo(labelLayer);
+    marker.on("click", (e) => {
+      L.DomEvent.stopPropagation(e);
+      if (state.measuring) return;
+      selectUnit(level, code, { fit: true, openPopup: true });
+    });
   }
 
   function refreshLabels() {
@@ -597,7 +602,13 @@
         if (!feature?.properties) return;
         const ll = labelLatLng(feature);
         if (!ll || !bounds.contains(ll)) return;
-        addLabelMarker(unitLabel("province", feature.properties), ll, "geo-label-province");
+        addLabelMarker(
+          unitLabel("province", feature.properties),
+          ll,
+          "geo-label-province",
+          "province",
+          feature.properties.code
+        );
       });
     }
 
@@ -612,7 +623,13 @@
         if (!b || !bounds.intersects(b)) return;
         const ll = labelLatLng(feature);
         if (!ll || !bounds.contains(ll)) return;
-        addLabelMarker(unitLabel("ward", feature.properties), ll, "geo-label-ward");
+        addLabelMarker(
+          unitLabel("ward", feature.properties),
+          ll,
+          "geo-label-ward",
+          "ward",
+          feature.properties.code
+        );
         shown += 1;
       });
     }
